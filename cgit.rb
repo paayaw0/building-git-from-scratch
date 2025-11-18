@@ -10,6 +10,8 @@ require_relative './entry'
 require_relative './tree'
 require_relative './author'
 require_relative './commit'
+require_relative './refs'
+require_relative './lockfile'
 
 command = ARGV.shift
 
@@ -38,6 +40,7 @@ when 'commit'
 
   workspace = Workspace.new(root_path)
   db = Database.new(db_path)
+  refs = Refs.new(git_path)
 
   entries = workspace.list_files.map do |path|
     data = workspace.read_file(path)
@@ -51,21 +54,25 @@ when 'commit'
   tree = Tree.new(entries)
   db.store(tree)
 
+  parent = refs.read_head
   name = ENV.fetch('CGIT_AUTHOR_NAME')
   email = ENV.fetch('CGIT_AUTHOR_EMAIL')
   author = Author.new(name, email, Time.now)
   message = $stdin.read
 
-  commit = Commit.new(tree.oid, author, message)
+  commit = Commit.new(parent, tree.oid, author, message)
   db.store(commit)
+  refs.update_head(commit.oid)
+
+  is_root = parent.nil? ? '(root-commit)' : ''
 
   File.open(git_path.join('HEAD'), File::WRONLY | File::CREAT) do |file|
     file.puts(commit.oid)
   end
 
-  puts "[(root-commit) #{commit.oid}] #{message.lines.first}"
+  puts "[#{is_root}#{commit.oid}] #{message.lines.first}"
   exit 0
 else
-  $stderr.puts "cgit: '#{command}' is not cgit command."
+  $stderr.puts "cgit: '#{command}' is not a cgit command."
   exit 1
 end
