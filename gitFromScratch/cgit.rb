@@ -5,11 +5,11 @@ require 'fileutils'
 require 'pathname'
 require_relative './workspace'
 require_relative './database'
-require_relative './blob'
+require_relative './lib/database/blob'
 require_relative './entry'
-require_relative './tree'
-require_relative './author'
-require_relative './commit'
+require_relative './lib/database/tree'
+require_relative './lib/database/author'
+require_relative './lib/database/commit'
 require_relative './refs'
 require_relative './lockfile'
 
@@ -48,11 +48,12 @@ when 'commit'
 
     db.store(blob)
 
-    Entry.new(path, blob.oid)
+    stat = workspace.stat_file(path)
+    Entry.new(path, blob.oid, stat)
   end
 
-  tree = Tree.new(entries)
-  db.store(tree)
+  root = Tree.build(entries)
+  root.traverse { |tree| db.store(tree) }
 
   parent = refs.read_head
   name = ENV.fetch('CGIT_AUTHOR_NAME')
@@ -60,7 +61,7 @@ when 'commit'
   author = Author.new(name, email, Time.now)
   message = $stdin.read
 
-  commit = Commit.new(parent, tree.oid, author, message)
+  commit = Commit.new(parent, root.oid, author, message)
   db.store(commit)
   refs.update_head(commit.oid)
 
