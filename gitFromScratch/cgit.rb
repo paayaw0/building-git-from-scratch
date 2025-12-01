@@ -62,14 +62,11 @@ when 'commit'
   message = $stdin.read
 
   commit = Commit.new(parent, root.oid, author, message)
+  
   db.store(commit)
   refs.update_head(commit.oid)
 
   is_root = parent.nil? ? '(root-commit)' : ''
-
-  File.open(git_path.join('HEAD'), File::WRONLY | File::CREAT) do |file|
-    file.puts(commit.oid)
-  end
 
   puts "[#{is_root}#{commit.oid}] #{message.lines.first}"
   exit 0
